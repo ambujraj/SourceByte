@@ -1,7 +1,7 @@
-!/files/input/zomato.csv
-files/output/
-files/staged/
+!/data/abc/raw/zomato.csv
+data/abc/processed/
+data/abc/staged/
 log/
 venv/
 .idea/
-!files/.DS_Store
+!data/.DS_Store
