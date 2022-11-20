@@ -1,6 +1,4 @@
-!/data/abc/raw/zomato.csv
-data/abc/processed/
-data/abc/staged/
+data/
 log/
 venv/
 .idea/

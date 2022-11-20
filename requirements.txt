@@ -1,3 +1,4 @@
 pandas==1.5.1
 openpyxl==3.0.10
 boto3==1.26.13
+SQLAlchemy==1.4.44

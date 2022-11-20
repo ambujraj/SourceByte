@@ -4,6 +4,7 @@ from datetime import datetime
 from configuration.extract import get_common_value
 from process import *
 import pandas as pd
+from database import db
 
 if __name__ == '__main__':
     # ----------Start Statement------------
@@ -21,12 +22,9 @@ if __name__ == '__main__':
         log.info("Completed reading from staged.")
 
     log.info("Processing with the file...")
-    zomato_df['rate'] = zomato_df['rate'].apply(lambda x: x.split('/')[0])
-    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r\n', ', '))
-    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r\r', ''))
-    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r', ''))
+    # The main process
+    process_file(zomato_df)
 
-    extract_phone_to_file(zomato_df)
     log.info("Processed.")
     if get_common_value("WriteToS3"):
         output_filename = 'result.xlsx'

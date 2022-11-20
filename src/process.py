@@ -1,24 +1,45 @@
 from os import makedirs, remove, listdir, path, rename, rmdir, getenv
-import logging as log
+import logging
 import pandas as pd
 from socket import gethostbyname, create_connection
 from io import BytesIO, StringIO
 from configuration.extract import get_common_value
 from shutil import rmtree
+from database.db import add_history
+from logger import CustomFormatter
 import boto3
 
 process_id = get_common_value("ProcessId")
+log = logging.getLogger("SourceByte")
+log.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+
+ch.setFormatter(CustomFormatter())
+
+log.addHandler(ch)
 if get_common_value("GetFromS3") or get_common_value("WriteToS3"):
     access_key = get_common_value("AWSAccessKey")
-    secret_access_key = getenv(get_common_value("AWSSecretKey"))
-    # secret_access_key = get_common_value("AWSSecretKey")
+    # secret_access_key = getenv(get_common_value("AWSSecretKey"))
+    secret_access_key = get_common_value("AWSSecretKey")
     bucket_name = get_common_value("S3BucketName")
     s3_client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     s3_resource = boto3.resource('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
 
 
+def process_file(zomato_df):
+    zomato_df['rate'] = zomato_df['rate'].apply(lambda x: x.split('/')[0])
+    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r\n', ', '))
+    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r\r', ''))
+    zomato_df['phone'] = zomato_df['phone'].apply(lambda x: x.replace('\r', ''))
+
+    extract_phone_to_file(zomato_df)
+
+
 def start_process(start_time):
-    rmtree("../data/{}/result".format(process_id), ignore_errors=True)
+    start_statement = "Started at: {}".format(start_time)
+    log.info(start_statement)
+    add_history()
     if get_common_value("WriteToS3"):
         try:
             bucket = s3_resource.Bucket(bucket_name)
@@ -33,10 +54,17 @@ def start_process(start_time):
                 exit()
         try:
             makedirs("../data/{}".format(process_id))
+        except OSError:
+            pass
+        try:
             makedirs("../data/{}/staged".format(process_id))
+        except OSError:
+            pass
+        try:
             makedirs("../data/{}/result".format(process_id))
         except OSError:
             pass
+
     else:
         paths_to_be_present = ["../data/{}".format(process_id), "../data/{}/raw".format(process_id)]
         for path_to_exist in paths_to_be_present:
@@ -45,19 +73,24 @@ def start_process(start_time):
                 exit()
         try:
             makedirs("../data/{}/staged".format(process_id))
+        except OSError:
+            pass
+        try:
             makedirs("../data/{}/processed".format(process_id))
+        except OSError:
+            pass
+        try:
             makedirs("../data/{}/result".format(process_id))
         except OSError:
             pass
+
     try:
         makedirs("../log")
     except OSError:
         pass
-    log.basicConfig(level=log.INFO, format='%(name)s - %(levelname)s - %(message)s')
+
     # log.basicConfig(level=log.INFO, filename='log/{}.log'.format(start_time), filemode='w', format='%(name)s - %(
     # levelname)s - %(message)s')
-    start_statement = "Started at: {}".format(start_time)
-    log.info(start_statement)
 
 
 def end_process(start_time, end_time):
@@ -136,7 +169,7 @@ def extract_phone_to_file(zomato_df):
     if get_common_value("WriteToS3"):
         phone_df = pd.DataFrame(columns=["PhoneNumber"])
         for phone in phone_number:
-            phone_df = phone_df.append({'PhoneNumber': phone}, ignore_index=True)
+            phone_df.loc[len(phone_df), ['PhoneNumber']] = phone
         write_to_s3(phone_df, "phone.xlsx")
     else:
         with open('../data/{}/result/phone.txt'.format(process_id), 'w') as f:
