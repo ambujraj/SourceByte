@@ -2,6 +2,7 @@ import logging as log
 import os
 from datetime import datetime
 from configuration.extract import get_common_value
+from internal import *
 from process import *
 import pandas as pd
 from database import db
@@ -11,37 +12,20 @@ if __name__ == '__main__':
     start_time = datetime.now()
     start_process(start_time)
     # ----------Start Statement------------
-    process_id = get_common_value("ProcessId")
-    staged_file_exists = os.path.exists('../data/{}/staged/staged.xlsx'.format(process_id))
-    if not staged_file_exists:
-        zomato_df = post_read_processing()
 
-    else:
-        log.info("Reading from staged...")
-        zomato_df = pd.read_excel('../data/{}/staged/staged.xlsx'.format(process_id), sheet_name='Data')
-        log.info("Completed reading from staged.")
+    # ----------Read Input------------
+    zomato_df = read_input()
+    # ----------Read Input------------
 
     log.info("Processing with the file...")
-    # The main process
-    process_file(zomato_df)
-
+    process_file(zomato_df)  # The main process (change this as per your need)
     log.info("Processed.")
-    if get_common_value("WriteToS3"):
-        output_filename = 'result.xlsx'
-        write_to_s3(zomato_df, output_filename)
-    else:
-        output_filename = '../data/{}/result/result.xlsx'.format(process_id)
-        log.info("Writing to Result...")
-        excel_writer = pd.ExcelWriter(output_filename, engine='xlsxwriter')
-        sheet_name = "Data"
-        zomato_df.to_excel(excel_writer, sheet_name=sheet_name, index=False)
-        # TODO: add bar graph for the rating
-        excel_writer.close()
-    log.info("Written to Result: {}".format(output_filename))
 
+    # ----------Writing to result------------
+    write_to_result(zomato_df, 'result.xlsx')
     move_to_processed()
+    # ----------Writing to result------------
 
-    log.info("Highest occurring rating: {}".format(zomato_df['rate'].mode()))
     # ----------End Statement------------
     end_time = datetime.now()
     end_process(start_time, end_time)
